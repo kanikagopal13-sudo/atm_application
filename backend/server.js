@@ -1,89 +1,83 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
-
+require("dotenv").config();
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-let users = [];
-
-app.post("/signup", (req, res) => {
-  const { username, password } = req.body;
-
-  const userExists = users.find(
-    (user) => user.username === username
-  );
-
-  if (userExists) {
-    return res.status(400).json({
-      message: "User already exists",
-    });
-  }
-
-  users.push({
-    username,
-    password,
-    balance: 1000,
-  });
-
-  res.json({
-    message: "Signup successful",
-  });
+// MongoDB connect
+mongoose.connect(process.env.MONGO_URI)
+.then(() => {
+    console.log("MongoDB Connected");
+})
+.catch((err) => {
+    console.log("MongoDB Error:", err);
 });
 
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+// Schema
+const userSchema = new mongoose.Schema({
+    username: String,
+    password: String,
+    balance: Number
+});
+const User = require("./models/User");
 
-  const user = users.find(
-    (u) =>
-      u.username === username &&
-      u.password === password
-  );
+// SIGNUP
+app.post("/signup", async (req, res) => {
+    const { username, password, balance } = req.body;
 
-  if (!user) {
-    return res.status(401).json({
-      message: "Invalid credentials",
-    });
-  }
+    const user = new User({ username, password, balance });
+    await user.save();
 
-  res.json(user);
+    res.json({ message: "User created" });
 });
 
-app.post("/deposit", (req, res) => {
-  const { username, amount } = req.body;
+// LOGIN
+app.post("/login", async (req, res) => {
+    const { username, password } = req.body;
 
-  const user = users.find(
-    (u) => u.username === username
-  );
+    const user = await User.findOne({ username, password });
 
-  user.balance += Number(amount);
+    if (!user) {
+        return res.json({ user: null });
+    }
 
-  res.json({
-    balance: user.balance,
-  });
+    res.json({ user });
 });
 
-app.post("/withdraw", (req, res) => {
-  const { username, amount } = req.body;
+// DEPOSIT
+app.post("/deposit", async (req, res) => {
+    const { username, amount } = req.body;
 
-  const user = users.find(
-    (u) => u.username === username
-  );
+    const user = await User.findOne({ username });
 
-  if (user.balance < amount) {
-    return res.status(400).json({
-      message: "Insufficient balance",
-    });
-  }
+    user.balance += amount;
+    await user.save();
 
-  user.balance -= Number(amount);
-
-  res.json({
-    balance: user.balance,
-  });
+    res.json({ balance: user.balance });
 });
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+// WITHDRAW
+app.post("/withdraw", async (req, res) => {
+    const { username, amount } = req.body;
+
+    const user = await User.findOne({ username });
+
+    if (amount > user.balance) {
+        return res.json({ error: "Insufficient balance" });
+    }
+
+    user.balance -= amount;
+    await user.save();
+
+    res.json({ balance: user.balance });
+});
+app.get("/", (req, res) => {
+    res.send("Backend Running");
+});
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });

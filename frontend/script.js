@@ -11,43 +11,45 @@ function showSignup() {
 }
 
 function signup() {
-    let username = document.getElementById("signupUser").value;
-    let password = document.getElementById("signupPass").value;
-
-    if (!username || !password) {
-        alert("Fill all fields");
-        return;
-    }
-
-    let user = {
-        username,
-        password,
-        balance: 1000
-    };
-
-    localStorage.setItem(username, JSON.stringify(user));
-
-    alert("Signup Successful");
-    showLogin();
+    fetch("http://localhost:5000/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username: signupUser.value,
+            password: signupPass.value,
+            balance: 1000
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.message);
+        showLogin();
+    });
 }
 
 function login() {
-    let username = document.getElementById("loginUser").value;
-    let password = document.getElementById("loginPass").value;
+    fetch("http://localhost:5000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username: loginUser.value,
+            password: loginPass.value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.user) {
+            alert("Invalid login");
+            return;
+        }
 
-    let user = JSON.parse(localStorage.getItem(username));
+        currentUser = data.user;
 
-    if (!user || user.password !== password) {
-        alert("Invalid Credentials");
-        return;
-    }
+        loginPage.classList.add("hidden");
+        atmPage.classList.remove("hidden");
 
-    currentUser = user;
-
-    document.getElementById("loginPage").classList.add("hidden");
-    document.getElementById("atmPage").classList.remove("hidden");
-
-    updateBalance();
+        balance.innerText = currentUser.balance;
+    });
 }
 
 function updateBalance() {
@@ -56,50 +58,41 @@ function updateBalance() {
 }
 
 function deposit() {
-    let amount =
-        Number(document.getElementById("amount").value);
-
-    if (amount <= 0) {
-        alert("Enter valid amount");
-        return;
-    }
-
-    currentUser.balance += amount;
-
-    localStorage.setItem(
-        currentUser.username,
-        JSON.stringify(currentUser)
-    );
-
-    updateBalance();
-
-    document.getElementById("amount").value = "";
+    fetch("http://localhost:5000/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username: currentUser.username,
+            amount: Number(amount.value)
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        currentUser.balance = data.balance;
+        balance.innerText = data.balance;
+        amount.value = "";
+    });
 }
-
 function withdraw() {
-    let amount =
-        Number(document.getElementById("amount").value);
+    fetch("http://localhost:5000/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username: currentUser.username,
+            amount: Number(amount.value)
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
 
-    if (amount <= 0) {
-        alert("Enter valid amount");
-        return;
-    }
-
-    if (amount > currentUser.balance) {
-        alert("Insufficient Balance");
-        return;
-    }
-
-    currentUser.balance -= amount;
-
-    localStorage.setItem(
-        currentUser.username,
-        JSON.stringify(currentUser)
-    );
-
-    updateBalance();
-
-    document.getElementById("amount").value = "";
+        currentUser.balance = data.balance;
+        balance.innerText = data.balance;
+        amount.value = "";
+    });
 }
 
 function logout() {
